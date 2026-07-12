@@ -67,6 +67,13 @@ export const AppProvider = ({ children }) => {
       const res = await fetch('/api/workspace');
       if (res.ok) {
         const data = await res.json();
+        console.log('[AppContext] /api/workspace response', {
+          workspaceId: data?.id || null,
+          ownerId: data?.ownerId || null,
+          emailProvider: data?.emailProvider || null,
+          googleConnected: data?.googleConnected || false,
+          spreadsheetId: data?.spreadsheetId || '',
+        });
         setWorkspace(data);
         if (data.name) setSelectedClient(data.name);
       }
@@ -111,6 +118,13 @@ export const AppProvider = ({ children }) => {
     try {
       const res  = await fetch(`/api/google/sheet`);
       const data = await res.json();
+      console.log('[AppContext] /api/google/sheet response', {
+        ok: res.ok,
+        status: res.status,
+        error: data?.error || null,
+        message: data?.message || null,
+        spreadsheetId: workspace?.spreadsheetId || '',
+      });
       if (res.ok) {
         setLeads(data.leads || []);
         setRowsCount(data.rows || 0);
@@ -138,6 +152,13 @@ export const AppProvider = ({ children }) => {
     try {
       const res  = await fetch('/api/email');
       const data = await res.json();
+      console.log('[AppContext] /api/email response', {
+        ok: res.ok,
+        status: res.status,
+        error: data?.error || null,
+        message: data?.message || null,
+        workspaceId: workspace?.id || null,
+      });
       if (res.ok) { setGmailData(data); setGmailError(null); }
       else         { setGmailError(data.message || 'Failed to load emails'); }
     } catch { setGmailError('Network error syncing emails'); }
@@ -146,6 +167,13 @@ export const AppProvider = ({ children }) => {
     try {
       const res  = await fetch('/api/google/calendar');
       const data = await res.json();
+      console.log('[AppContext] /api/google/calendar response', {
+        ok: res.ok,
+        status: res.status,
+        error: data?.error || null,
+        message: data?.message || null,
+        workspaceId: workspace?.id || null,
+      });
       if (res.ok) { setCalendarData(data); setCalendarError(null); }
       else         { setCalendarError(data.message || 'Failed to load calendar events'); }
     } catch { setCalendarError('Network error syncing Calendar'); }

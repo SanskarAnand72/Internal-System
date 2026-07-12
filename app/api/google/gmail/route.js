@@ -15,6 +15,13 @@ export async function GET(req) {
     console.log(`[Gmail API] workspaceId   : ${workspaceId}`);
     console.log(`[Gmail API] ownerEmail    : ${workspace?.ownerEmail || "NONE"}`);
     console.log(`[Gmail API] accessToken   : ${workspace?.googleTokens?.accessToken ? "present" : "MISSING"}`);
+    console.log("[Gmail API] workspaceSnapshot", {
+      workspaceId: workspace?.id || null,
+      ownerId: workspace?.ownerId || null,
+      emailProvider: workspace?.emailProvider || "gmail",
+      googleTokens: workspace?.googleTokens || null,
+      spreadsheetId: workspace?.spreadsheetId || "",
+    });
 
     const authClient = await getGoogleClient();
     const gmail      = google.gmail({ version: "v1", auth: authClient });

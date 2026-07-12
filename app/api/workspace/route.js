@@ -28,6 +28,13 @@ export async function GET() {
   }
 
   const members = getUsersByWorkspace(workspace.id);
+  console.log("[GET /api/workspace] workspaceSnapshot", {
+    workspaceId: workspace.id,
+    ownerId: workspace.ownerId,
+    emailProvider: workspace.emailProvider || "gmail",
+    googleTokens: workspace.googleTokens || null,
+    spreadsheetId: workspace.spreadsheetId || "",
+  });
 
   const maskedCredentials = workspace.titanCredentials ? {
     host: workspace.titanCredentials.host || "",
@@ -44,7 +51,7 @@ export async function GET() {
     ownerId:       workspace.ownerId,
     ownerEmail:    workspace.ownerEmail,
     spreadsheetId: workspace.spreadsheetId || "",
-    googleConnected: !!(workspace.googleTokens?.accessToken),
+    googleConnected: !!workspace.googleTokens,
     memberCount:   members.length,
     createdAt:     workspace.createdAt,
     emailProvider: workspace.emailProvider || "gmail",
@@ -175,6 +182,13 @@ export async function PATCH(req) {
 
   const updated = updateWorkspace(workspace.id, patch);
   console.log("[PATCH /api/workspace] Updated record in DB:", JSON.stringify(updated));
+  console.log("[PATCH /api/workspace] workspaceSnapshot", {
+    workspaceId: updated?.id || workspace.id,
+    ownerId: updated?.ownerId || workspace.ownerId,
+    emailProvider: updated?.emailProvider || workspace.emailProvider || "gmail",
+    googleTokens: updated?.googleTokens || null,
+    spreadsheetId: updated?.spreadsheetId || "",
+  });
 
   return NextResponse.json({ workspace: updated });
 }

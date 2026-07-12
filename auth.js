@@ -636,6 +636,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             workspaceId: dbUser.workspaceId,
           });
 
+          logAuth("jwt:workspaceSnapshot", {
+            workspaceId: resolvedWorkspace?.id || dbUser.workspaceId || null,
+            ownerId: resolvedWorkspace?.ownerId || null,
+            emailProvider: resolvedWorkspace?.emailProvider || null,
+            googleTokens: resolvedWorkspace?.googleTokens || null,
+            spreadsheetId: resolvedWorkspace?.spreadsheetId || null,
+          });
+
           if (!dbUser.workspaceId && resolvedWorkspace) {
             updateUser(dbUser.id, {
               workspaceId: resolvedWorkspace.id,
@@ -821,10 +829,19 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         // token.id is now the DB UUID (set in the jwt callback); fall back to sub only if missing
         session.user.id = sessionUserId;
+        session.user.email = sessionEmail;
         session.user.workspaceId = sessionWorkspace?.id || token.workspaceId || null;
         session.user.workspaceName = sessionWorkspace?.name || token.workspaceName || null;
         session.user.role = token.role || (sessionWorkspace?.ownerId === sessionUserId ? "Owner" : null);
         if (token.image) session.user.image = token.image;
+
+        logAuth("session:workspaceSnapshot", {
+          workspaceId: sessionWorkspace?.id || token.workspaceId || null,
+          ownerId: sessionWorkspace?.ownerId || null,
+          emailProvider: sessionWorkspace?.emailProvider || null,
+          googleTokens: sessionWorkspace?.googleTokens || null,
+          spreadsheetId: sessionWorkspace?.spreadsheetId || null,
+        });
       }
 
       logAuth("session:return", {
