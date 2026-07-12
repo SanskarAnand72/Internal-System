@@ -9,12 +9,24 @@ export async function GET(req) {
     const userId      = session?.user?.id          || "unknown";
     const workspaceId = session?.user?.workspaceId || "unknown";
     const workspace   = await getCurrentWorkspace();
+    console.log("[Calendar API] claims", {
+      sessionUserId: session?.user?.id || null,
+      sessionEmail: session?.user?.email || null,
+      sessionWorkspaceId: session?.user?.workspaceId || null,
+    });
 
     console.log("[Calendar API] ───────────────────────────────────────────");
     console.log(`[Calendar API] userId        : ${userId}`);
     console.log(`[Calendar API] workspaceId   : ${workspaceId}`);
     console.log(`[Calendar API] ownerEmail    : ${workspace?.ownerEmail || "NONE"}`);
     console.log(`[Calendar API] accessToken   : ${workspace?.googleTokens?.accessToken ? "present" : "MISSING"}`);
+    console.log("[Calendar API] resolvedWorkspace", {
+      workspaceId: workspace?.id || null,
+      ownerId: workspace?.ownerId || null,
+      emailProvider: workspace?.emailProvider || null,
+      googleTokens: workspace?.googleTokens || null,
+      spreadsheetId: workspace?.spreadsheetId || null,
+    });
 
     const authClient = await getGoogleClient();
     const calendar   = google.calendar({ version: "v3", auth: authClient });

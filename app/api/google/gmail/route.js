@@ -9,6 +9,11 @@ export async function GET(req) {
     const userId      = session?.user?.id          || "unknown";
     const workspaceId = session?.user?.workspaceId || "unknown";
     const workspace   = await getCurrentWorkspace();
+    console.log("[Gmail API] claims", {
+      sessionUserId: session?.user?.id || null,
+      sessionEmail: session?.user?.email || null,
+      sessionWorkspaceId: session?.user?.workspaceId || null,
+    });
 
     console.log("[Gmail API] ──────────────────────────────────────────────");
     console.log(`[Gmail API] userId        : ${userId}`);

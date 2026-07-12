@@ -838,7 +838,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
       if (session.user) {
         const sessionUserId = token.id || token.sub || null;
-        const sessionEmail = session.user.email || token.email || null;
+        const sessionDbUser = sessionUserId ? getUserById(sessionUserId) : null;
+        const sessionEmail = session.user.email || token.email || sessionDbUser?.email || null;
         const sessionWorkspace = findWorkspaceForUser({
           userId: sessionUserId,
           email: sessionEmail,
@@ -853,6 +854,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         session.user.role = token.role || (sessionWorkspace?.ownerId === sessionUserId ? "Owner" : null);
         if (token.image) session.user.image = token.image;
 
+        logAuth("session:claims", {
+          sessionUserId,
+          sessionEmail,
+          jwtWorkspaceId: token.workspaceId || null,
+          sessionWorkspaceId: session.user.workspaceId || null,
+        });
         logAuth("session:workspaceSnapshot", {
           workspaceId: sessionWorkspace?.id || token.workspaceId || null,
           ownerId: sessionWorkspace?.ownerId || null,

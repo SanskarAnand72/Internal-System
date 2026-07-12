@@ -15,6 +15,11 @@ import {
 // Returns the current user's workspace info.
 export async function GET() {
   const session = await auth();
+  console.log("[GET /api/workspace] claims", {
+    sessionUserId: session?.user?.id || null,
+    sessionEmail: session?.user?.email || null,
+    sessionWorkspaceId: session?.user?.workspaceId || null,
+  });
   const workspace = session?.user
     ? findWorkspaceForUser({
         userId: session.user.id || null,
@@ -137,6 +142,12 @@ export async function POST(req) {
 // Update workspace name or spreadsheetId. Owner only.
 export async function PATCH(req) {
   const session = await auth();
+  console.log("[PATCH /api/workspace] claims", {
+    sessionUserId: session?.user?.id || null,
+    sessionEmail: session?.user?.email || null,
+    sessionWorkspaceId: session?.user?.workspaceId || null,
+    sessionRole: session?.user?.role || null,
+  });
   const workspace = session?.user
     ? findWorkspaceForUser({
         userId: session.user.id || null,

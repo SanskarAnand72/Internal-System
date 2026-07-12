@@ -63,11 +63,23 @@ export async function GET(req) {
     const userId      = session?.user?.id          || "unknown";
     const workspaceId = session?.user?.workspaceId || "unknown";
     const userRole    = session?.user?.role        || "unknown";
+    console.log("[Sheets API] claims", {
+      sessionUserId: session?.user?.id || null,
+      sessionEmail: session?.user?.email || null,
+      sessionWorkspaceId: session?.user?.workspaceId || null,
+    });
 
     // ALWAYS read spreadsheetId from the workspace DB — never from URL params.
     // URL params are untrusted client state and must not override the real DB.
     const workspace   = await getCurrentWorkspace();
     const spreadsheetId = workspace?.spreadsheetId || "";
+    console.log("[Sheets API] resolvedWorkspace", {
+      workspaceId: workspace?.id || null,
+      ownerId: workspace?.ownerId || null,
+      emailProvider: workspace?.emailProvider || null,
+      googleTokens: workspace?.googleTokens || null,
+      spreadsheetId: workspace?.spreadsheetId || null,
+    });
 
     console.log("[Sheets API] ─────────────────────────────────────────────");
     console.log(`[Sheets API] userId        : ${userId}`);

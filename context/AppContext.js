@@ -63,6 +63,12 @@ export const AppProvider = ({ children }) => {
   const loadWorkspace = useCallback(async () => {
     if (status !== 'authenticated') return;
     setWorkspaceLoading(true);
+    console.log('[AppContext] claims', {
+      sessionUserId: session?.user?.id || null,
+      sessionEmail: session?.user?.email || null,
+      sessionWorkspaceId: session?.user?.workspaceId || null,
+      appContextWorkspaceId: workspace?.id || null,
+    });
     try {
       const res = await fetch('/api/workspace');
       if (res.ok) {
@@ -75,6 +81,13 @@ export const AppProvider = ({ children }) => {
           spreadsheetId: data?.spreadsheetId || '',
         });
         setWorkspace(data);
+        console.log('[AppContext] workspaceState', {
+          workspaceId: data?.id || null,
+          ownerId: data?.ownerId || null,
+          emailProvider: data?.emailProvider || null,
+          googleConnected: data?.googleConnected || false,
+          spreadsheetId: data?.spreadsheetId || '',
+        });
         if (data.name) setSelectedClient(data.name);
       }
     } catch { /* silent */ }
@@ -108,6 +121,14 @@ export const AppProvider = ({ children }) => {
       setSheetsError('No User Authenticated');
       return;
     }
+
+    console.log('[AppContext] syncClaims', {
+      sessionUserId: session?.user?.id || null,
+      sessionEmail: session?.user?.email || null,
+      sessionWorkspaceId: session?.user?.workspaceId || null,
+      appContextWorkspaceId: workspace?.id || null,
+      spreadsheetId: workspace?.spreadsheetId || '',
+    });
 
     setSyncing(true);
     if (isManual) showToast('🔄 Syncing Google Workspace Data…', 'primary');
