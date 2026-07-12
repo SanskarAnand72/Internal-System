@@ -79,7 +79,12 @@ export async function GET(req) {
     });
 
   } catch (e) {
-    console.error("[Calendar API] ERROR:", e.message);
+    console.error("[Calendar API] ERROR:", {
+      message: e.message,
+      code: e.code || null,
+      status: e?.response?.status || null,
+      response: e?.response?.data || null,
+    });
     return NextResponse.json(
       { error: "No Data Connected", message: e.message },
       { status: 500 }

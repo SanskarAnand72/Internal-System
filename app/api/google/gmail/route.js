@@ -134,7 +134,12 @@ export async function GET(req) {
     return NextResponse.json({ unreadCount, threads: threadDetails, categories });
 
   } catch (e) {
-    console.error("[Gmail API] ERROR:", e.message);
+    console.error("[Gmail API] ERROR:", {
+      message: e.message,
+      code: e.code || null,
+      status: e?.response?.status || null,
+      response: e?.response?.data || null,
+    });
     return NextResponse.json(
       { error: "No Data Connected", message: e.message },
       { status: 500 }

@@ -245,7 +245,12 @@ export async function GET(req) {
     });
 
   } catch (e) {
-    console.error("[Sheets API] GET ERROR:", e.message);
+    console.error("[Sheets API] GET ERROR:", {
+      message: e.message,
+      code: e.code || null,
+      status: e?.response?.status || null,
+      response: e?.response?.data || null,
+    });
     
     // Special handling for Office/Excel files that haven't been converted to Google Sheets
     if (e.message && e.message.includes("not supported for this document")) {

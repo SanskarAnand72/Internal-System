@@ -276,6 +276,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                 });
 
                 updateWorkspace(existingWorkspace.id, { googleTokens: ownerTokens });
+                const savedWorkspace = getWorkspaceById(existingWorkspace.id);
+                logAuth("signIn:savedGoogleTokens", {
+                  workspaceId: savedWorkspace?.id || existingWorkspace.id,
+                  googleTokens: savedWorkspace?.googleTokens || null,
+                });
                 console.log(`[signIn] Re-linked existing workspace ${existingWorkspace.id} for ${existingUser.email}`);
               }
             } else {
@@ -320,6 +325,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
               logAuth("signIn:dbWrite:createWorkspace", {
                 workspaceId,
                 result: ownerWs,
+              });
+              logAuth("signIn:savedGoogleTokens", {
+                workspaceId: ownerWs?.id || workspaceId,
+                googleTokens: ownerWs?.googleTokens || null,
               });
 
               patch.workspaceId = workspaceId;
@@ -425,6 +434,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                 workspaceId: workspace.id,
                 result: updatedWorkspace,
               });
+              logAuth("signIn:savedGoogleTokens", {
+                workspaceId: updatedWorkspace?.id || workspace.id,
+                googleTokens: updatedWorkspace?.googleTokens || null,
+              });
               console.log(`[signIn] Synced Google tokens to workspace ${workspace.id} for owner ${existingUser.email}`);
               console.log(`[signIn] Has refresh_token: ${!!merged.refreshToken}, expires: ${merged.expiresAt}`);
             }
@@ -506,6 +519,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             console.log("[Auth][signIn] Before getWorkspaceById (new owner)", { workspaceId });
             const newOwnerWs = getWorkspaceById(workspaceId);
             console.log("[Auth][signIn] After getWorkspaceById (new owner)", { found: !!newOwnerWs });
+
+            logAuth("signIn:savedGoogleTokens", {
+              workspaceId: newOwnerWs?.id || workspaceId,
+              googleTokens: newOwnerWs?.googleTokens || null,
+            });
 
             logAuth("signIn:dbWrite:createWorkspace", {
               workspaceId,

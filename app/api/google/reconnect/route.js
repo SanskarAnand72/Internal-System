@@ -36,15 +36,30 @@ export async function POST() {
       return NextResponse.json({ error: "Workspace not found" }, { status: 404 });
     }
 
-    // Clear all Google tokens — the next owner sign-in will re-populate them
-    updateWorkspace(workspaceId, { googleTokens: null });
+    console.log("[Google Reconnect] workspaceSnapshot:before", {
+      workspaceId: workspace.id,
+      ownerId: workspace.ownerId,
+      emailProvider: workspace.emailProvider || "gmail",
+      googleTokens: workspace.googleTokens || null,
+      spreadsheetId: workspace.spreadsheetId || "",
+    });
+
+    // Preserve Google tokens; sign-out/sign-in will refresh them without losing the current workspace record.
+    updateWorkspace(workspaceId, { updatedAt: new Date().toISOString() });
 
     console.log(`[Google Reconnect] Cleared tokens for workspace ${workspaceId} (${workspace.name})`);
     console.log(`[Google Reconnect] Owner must sign out and sign back in to reconnect.`);
+    console.log("[Google Reconnect] workspaceSnapshot:after", {
+      workspaceId: workspace.id,
+      ownerId: workspace.ownerId,
+      emailProvider: workspace.emailProvider || "gmail",
+      googleTokens: getWorkspaceById(workspaceId)?.googleTokens || null,
+      spreadsheetId: getWorkspaceById(workspaceId)?.spreadsheetId || "",
+    });
 
     return NextResponse.json({
       success: true,
-      message: "Google tokens cleared. Please sign out and sign back in to reconnect all Google services.",
+      message: "Google reconnect requested. Please sign out and sign back in to refresh Google services.",
     });
   } catch (error) {
     console.error("[Google Reconnect] Error:", error.message);
