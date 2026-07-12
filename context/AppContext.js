@@ -134,13 +134,13 @@ export const AppProvider = ({ children }) => {
       setSheetsError('Network error syncing sheet');
     }
 
-    // 2 · Gmail
+    // 2 · Email Provider (Gmail or Titan)
     try {
-      const res  = await fetch('/api/google/gmail');
+      const res  = await fetch('/api/email');
       const data = await res.json();
       if (res.ok) { setGmailData(data); setGmailError(null); }
       else         { setGmailError(data.message || 'Failed to load emails'); }
-    } catch { setGmailError('Network error syncing Gmail'); }
+    } catch { setGmailError('Network error syncing emails'); }
 
     // 3 · Calendar
     try {

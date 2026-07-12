@@ -120,8 +120,10 @@ export async function PATCH(req) {
   console.log("[PATCH /api/workspace] Received body:", JSON.stringify(body));
 
   const patch = {};
-  if (body.name         !== undefined) patch.name          = body.name.trim();
-  if (body.spreadsheetId !== undefined) patch.spreadsheetId = body.spreadsheetId.trim();
+  if (body.name             !== undefined) patch.name              = body.name.trim();
+  if (body.spreadsheetId    !== undefined) patch.spreadsheetId     = body.spreadsheetId.trim();
+  if (body.emailProvider    !== undefined) patch.emailProvider     = body.emailProvider;
+  if (body.titanCredentials !== undefined) patch.titanCredentials  = body.titanCredentials;
 
   console.log("[PATCH /api/workspace] Applying patch:", JSON.stringify(patch));
 

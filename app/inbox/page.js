@@ -4,9 +4,11 @@ import React, { useState } from 'react';
 import { useApp } from '@/context/AppContext';
 
 export default function RepliesPage() {
-  const { clientData, selectedClient, showToast, syncing, syncData } = useApp();
+  const { clientData, selectedClient, showToast, syncing, syncData, workspace } = useApp();
   const [activeTab, setActiveTab] = useState('all');
   const [selected, setSelected] = useState(null);
+
+  const emailProvider = workspace?.emailProvider || 'gmail';
 
   const hasError = !!clientData.gmailError;
   const gmailData = clientData.gmailData || {
@@ -48,7 +50,7 @@ export default function RepliesPage() {
     <>
       <div className="page-heading">
         <h1 className="page-title">Replies Inbox</h1>
-        <p className="page-sub">AI-categorized inbox threads derived from Gmail API — {gmailData.unreadCount} unread</p>
+        <p className="page-sub">AI-categorized inbox threads derived from {emailProvider === 'gmail' ? 'Gmail API' : 'Titan IMAP'} — {gmailData.unreadCount} unread</p>
       </div>
 
       {hasError ? (
@@ -66,10 +68,10 @@ export default function RepliesPage() {
           <div style={{ fontSize: '32px' }}>✉️</div>
           <div style={{ fontSize: '15px', fontWeight: 700 }}>No Data Connected</div>
           <p style={{ fontSize: '12px', color: 'var(--text-2)', maxWidth: '380px', lineHeight: 1.5, margin: 0 }}>
-            Unable to connect to your Gmail Inbox. Verify you have signed in with the correct Google account and try again.
+            Unable to connect to your {emailProvider === 'gmail' ? 'Gmail Inbox' : 'Titan Inbox'}. Verify your connection settings and credentials in Settings.
           </p>
           <button className="btn-secondary" style={{ marginTop: '8px' }} onClick={() => syncData(true)} disabled={syncing}>
-            {syncing ? 'Connecting…' : 'Sync Gmail'}
+            {syncing ? 'Connecting…' : emailProvider === 'gmail' ? 'Sync Gmail' : 'Sync Titan'}
           </button>
         </div>
       ) : (
@@ -89,7 +91,7 @@ export default function RepliesPage() {
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ animation: syncing ? 'spin 1s linear infinite' : 'none' }}>
                 <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>
               </svg>
-              {syncing ? 'Syncing Gmail…' : 'Sync Gmail'}
+              {syncing ? (emailProvider === 'gmail' ? 'Syncing Gmail…' : 'Syncing Titan…') : (emailProvider === 'gmail' ? 'Sync Gmail' : 'Sync Titan')}
             </button>
           </div>
 

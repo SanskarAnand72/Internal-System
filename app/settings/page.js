@@ -5,7 +5,7 @@ import { useApp } from '@/context/AppContext';
 import { useSession, signOut } from 'next-auth/react';
 
 export default function SettingsPage() {
-  const { showToast, workspace, updateSpreadsheetId } = useApp();
+  const { showToast, workspace, loadWorkspace } = useApp();
   const { data: session } = useSession();
   const isOwner = session?.user?.role === 'Owner';
 
@@ -26,12 +26,31 @@ export default function SettingsPage() {
   const [slackMeeting, setSlackMeeting] = useState(true);
   const [emailDaily, setEmailDaily] = useState(false);
 
+  const [emailProvider, setEmailProvider] = useState('gmail');
+  const [titanHost, setTitanHost] = useState('imap.titan.email');
+  const [titanSmtpHost, setTitanSmtpHost] = useState('smtp.titan.email');
+  const [titanImapPort, setTitanImapPort] = useState('993');
+  const [titanSmtpPort, setTitanSmtpPort] = useState('465');
+  const [titanEmail, setTitanEmail] = useState('');
+  const [titanPassword, setTitanPassword] = useState('');
+
   const [saved, setSaved] = useState(false);
 
-  // Sync spreadsheet input from workspace record
+  // Sync workspace configurations
   useEffect(() => {
-    setSheetIdInput(workspace?.spreadsheetId || '');
-  }, [workspace?.spreadsheetId]);
+    if (workspace) {
+      setSheetIdInput(workspace.spreadsheetId || '');
+      setEmailProvider(workspace.emailProvider || 'gmail');
+      if (workspace.titanCredentials) {
+        setTitanHost(workspace.titanCredentials.host || 'imap.titan.email');
+        setTitanSmtpHost(workspace.titanCredentials.smtpHost || 'smtp.titan.email');
+        setTitanImapPort(workspace.titanCredentials.imapPort || '993');
+        setTitanSmtpPort(workspace.titanCredentials.smtpPort || '465');
+        setTitanEmail(workspace.titanCredentials.email || '');
+        setTitanPassword(workspace.titanCredentials.password || '');
+      }
+    }
+  }, [workspace]);
 
   const handleReconnectGoogle = async () => {
     if (!confirm('Are you sure you want to reconnect Google Services? This will clear the workspace connection and log you out so you can sign in and approve the updated scopes.')) {
@@ -56,13 +75,41 @@ export default function SettingsPage() {
 
   const handleSave = async () => {
     setSaved(true);
-    await updateSpreadsheetId(sheetIdInput);
-    showToast('✅ Configuration saved successfully', 'success');
+    try {
+      const res = await fetch('/api/workspace', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          spreadsheetId: sheetIdInput,
+          emailProvider,
+          titanCredentials: {
+            host: titanHost,
+            smtpHost: titanSmtpHost,
+            imapPort: titanImapPort,
+            smtpPort: titanSmtpPort,
+            email: titanEmail,
+            password: titanPassword,
+          }
+        }),
+      });
+
+      if (res.ok) {
+        showToast('✅ Configuration saved successfully', 'success');
+        await loadWorkspace();
+      } else {
+        const data = await res.json();
+        showToast(`Error: ${data.error || 'Failed to save settings'}`, 'primary');
+      }
+    } catch (e) {
+      console.error(e);
+      showToast('Network error saving settings', 'primary');
+    }
     setTimeout(() => setSaved(false), 2000);
   };
 
   const sections = [
     { id: 'general', label: 'General', icon: '⚙️' },
+    { id: 'email', label: 'Email Provider', icon: '✉️' },
     { id: 'ai', label: 'AI Settings', icon: '✦' },
     { id: 'notifications', label: 'Notifications', icon: '🔔' },
     { id: 'danger', label: 'Danger Zone', icon: '⚠️' },
@@ -194,6 +241,178 @@ export default function SettingsPage() {
                     {['9 AM – 5 PM', '8 AM – 6 PM', '7 AM – 8 PM', 'Any time'].map(sw => <option key={sw} value={sw}>{sw}</option>)}
                   </select>
                 </div>
+              </>
+            )}
+
+            {activeSection === 'email' && (
+              <>
+                <div>
+                  <label style={{ fontSize: '11px', color: 'var(--text-3)', fontWeight: 600, display: 'block', marginBottom: '8px' }}>
+                    Select Active Email Provider
+                  </label>
+                  <div style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>
+                    {[
+                      { id: 'gmail', label: 'Gmail / Google Workspace', desc: 'Google API & OAuth' },
+                      { id: 'titan', label: 'Titan Email', desc: 'IMAP & SMTP' }
+                    ].map(p => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => setEmailProvider(p.id)}
+                        disabled={!isOwner}
+                        style={{
+                          flex: 1,
+                          padding: '12px',
+                          background: emailProvider === p.id ? 'rgba(124, 58, 237, 0.08)' : 'var(--bg-card-alt)',
+                          border: emailProvider === p.id ? '1px solid var(--violet)' : '1px solid var(--border)',
+                          borderRadius: 'var(--radius)',
+                          textAlign: 'left',
+                          cursor: isOwner ? 'pointer' : 'not-allowed',
+                          opacity: isOwner ? 1 : 0.5,
+                          transition: 'all 0.2s',
+                          color: 'var(--text)'
+                        }}
+                      >
+                        <div style={{ fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span style={{
+                            width: '8px',
+                            height: '8px',
+                            borderRadius: '50%',
+                            background: emailProvider === p.id ? 'var(--violet)' : 'transparent',
+                            border: emailProvider === p.id ? 'none' : '1px solid var(--text-3)'
+                          }} />
+                          {p.label}
+                        </div>
+                        <div style={{ fontSize: '10.5px', color: 'var(--text-3)', marginTop: '4px', marginLeft: '14px' }}>
+                          {p.desc}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {emailProvider === 'gmail' && (
+                  <div style={{
+                    padding: '16px',
+                    background: 'var(--bg-card-alt)',
+                    border: '1px solid var(--border)',
+                    borderRadius: 'var(--radius)',
+                    marginTop: '6px'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div>
+                        <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text)' }}>Google Account Integration</div>
+                        <div style={{ fontSize: '11px', color: 'var(--text-3)', marginTop: '2px' }}>
+                          Status: <span style={{ color: workspace?.googleConnected ? 'var(--green)' : 'var(--red)', fontWeight: 600 }}>
+                            {workspace?.googleConnected ? 'Connected' : 'Not Connected'}
+                          </span>
+                        </div>
+                      </div>
+                      {isOwner && (
+                        <button
+                          onClick={handleReconnectGoogle}
+                          className="btn-ghost"
+                          style={{ fontSize: '11.5px', padding: '6px 12px', borderColor: 'var(--border)' }}
+                        >
+                          Reconnect Account
+                        </button>
+                      )}
+                    </div>
+                    <small style={{ color: 'var(--text-3)', fontSize: '10px', marginTop: '8px', display: 'block', lineHeight: 1.4 }}>
+                      All members of the workspace share this Google connection. If you experience authentication or scope errors with Sheets, Gmail, or Calendar, click "Reconnect Account" to log out and grant all scopes.
+                    </small>
+                  </div>
+                )}
+
+                {emailProvider === 'titan' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                    <div style={{
+                      padding: '12px 14px',
+                      background: 'rgba(124, 58, 237, 0.04)',
+                      border: '1px dashed rgba(124, 58, 237, 0.3)',
+                      borderRadius: 'var(--radius-xs)',
+                      fontSize: '11px',
+                      color: 'var(--text-2)',
+                      lineHeight: 1.4
+                    }}>
+                      💡 <strong>Prerequisites:</strong> Before connecting, open your Titan Webmail settings, go to "Enable Titan on Other Apps", and check "Configure 3rd party apps" to allow IMAP access. Also ensure 2FA is disabled on your Titan account.
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                      <div>
+                        <label style={{ fontSize: '11px', color: 'var(--text-3)', fontWeight: 600, display: 'block', marginBottom: '5px' }}>IMAP Host</label>
+                        <input
+                          type="text"
+                          value={titanHost}
+                          onChange={e => setTitanHost(e.target.value)}
+                          placeholder="imap.titan.email"
+                          disabled={!isOwner}
+                          style={{ width: '100%', background: 'var(--bg-card-alt)', border: '1px solid var(--border)', borderRadius: '8px', padding: '8px 12px', color: 'var(--text)', fontSize: '12.5px', outline: 'none', fontFamily: 'var(--font)' }}
+                        />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: '11px', color: 'var(--text-3)', fontWeight: 600, display: 'block', marginBottom: '5px' }}>IMAP Port</label>
+                        <input
+                          type="text"
+                          value={titanImapPort}
+                          onChange={e => setTitanImapPort(e.target.value)}
+                          placeholder="993"
+                          disabled={!isOwner}
+                          style={{ width: '100%', background: 'var(--bg-card-alt)', border: '1px solid var(--border)', borderRadius: '8px', padding: '8px 12px', color: 'var(--text)', fontSize: '12.5px', outline: 'none', fontFamily: 'var(--font)' }}
+                        />
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                      <div>
+                        <label style={{ fontSize: '11px', color: 'var(--text-3)', fontWeight: 600, display: 'block', marginBottom: '5px' }}>SMTP Host</label>
+                        <input
+                          type="text"
+                          value={titanSmtpHost}
+                          onChange={e => setTitanSmtpHost(e.target.value)}
+                          placeholder="smtp.titan.email"
+                          disabled={!isOwner}
+                          style={{ width: '100%', background: 'var(--bg-card-alt)', border: '1px solid var(--border)', borderRadius: '8px', padding: '8px 12px', color: 'var(--text)', fontSize: '12.5px', outline: 'none', fontFamily: 'var(--font)' }}
+                        />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: '11px', color: 'var(--text-3)', fontWeight: 600, display: 'block', marginBottom: '5px' }}>SMTP Port</label>
+                        <input
+                          type="text"
+                          value={titanSmtpPort}
+                          onChange={e => setTitanSmtpPort(e.target.value)}
+                          placeholder="465"
+                          disabled={!isOwner}
+                          style={{ width: '100%', background: 'var(--bg-card-alt)', border: '1px solid var(--border)', borderRadius: '8px', padding: '8px 12px', color: 'var(--text)', fontSize: '12.5px', outline: 'none', fontFamily: 'var(--font)' }}
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label style={{ fontSize: '11px', color: 'var(--text-3)', fontWeight: 600, display: 'block', marginBottom: '5px' }}>Email Address</label>
+                      <input
+                        type="email"
+                        value={titanEmail}
+                        onChange={e => setTitanEmail(e.target.value)}
+                        placeholder="you@yourdomain.com"
+                        disabled={!isOwner}
+                        style={{ width: '100%', background: 'var(--bg-card-alt)', border: '1px solid var(--border)', borderRadius: '8px', padding: '8px 12px', color: 'var(--text)', fontSize: '12.5px', outline: 'none', fontFamily: 'var(--font)' }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ fontSize: '11px', color: 'var(--text-3)', fontWeight: 600, display: 'block', marginBottom: '5px' }}>Password</label>
+                      <input
+                        type="password"
+                        value={titanPassword}
+                        onChange={e => setTitanPassword(e.target.value)}
+                        placeholder="••••••••••••"
+                        disabled={!isOwner}
+                        style={{ width: '100%', background: 'var(--bg-card-alt)', border: '1px solid var(--border)', borderRadius: '8px', padding: '8px 12px', color: 'var(--text)', fontSize: '12.5px', outline: 'none', fontFamily: 'var(--font)' }}
+                      />
+                    </div>
+                  </div>
+                )}
               </>
             )}
 
