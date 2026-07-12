@@ -34,7 +34,64 @@ export default function SettingsPage() {
   const [titanEmail, setTitanEmail] = useState('');
   const [titanPassword, setTitanPassword] = useState('');
 
+  const [testingConnection, setTestingConnection] = useState(false);
+  const [testResult, setTestResult] = useState(null);
+  const [syncingMailbox, setSyncingMailbox] = useState(false);
   const [saved, setSaved] = useState(false);
+
+  const handleTestConnection = async () => {
+    setTestingConnection(true);
+    setTestResult(null);
+    try {
+      const res = await fetch('/api/email/test-connection', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          emailProvider,
+          titanCredentials: {
+            host: titanHost,
+            smtpHost: titanSmtpHost,
+            imapPort: titanImapPort,
+            smtpPort: titanSmtpPort,
+            email: titanEmail,
+            password: titanPassword,
+          }
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setTestResult({ success: true, message: '✓ Connected successfully!' });
+        showToast('✓ Connection test succeeded', 'success');
+      } else {
+        setTestResult({ success: false, error: data.error || 'Connection failed' });
+        showToast('✗ Connection test failed', 'primary');
+      }
+    } catch (e) {
+      setTestResult({ success: false, error: e.message || 'Network error' });
+      showToast('Network error testing connection', 'primary');
+    } finally {
+      setTestingConnection(false);
+    }
+  };
+
+  const handleSyncMailbox = async () => {
+    setSyncingMailbox(true);
+    showToast('🔄 Synchronizing email inbox data…', 'primary');
+    try {
+      const res = await fetch('/api/email');
+      if (res.ok) {
+        showToast('✅ Mailbox synchronized successfully', 'success');
+        await loadWorkspace();
+      } else {
+        const data = await res.json();
+        showToast(`Sync failed: ${data.message || 'Error'}`, 'primary');
+      }
+    } catch (e) {
+      showToast('Network error running sync', 'primary');
+    } finally {
+      setSyncingMailbox(false);
+    }
+  };
 
   // Sync workspace configurations
   useEffect(() => {
@@ -250,16 +307,18 @@ export default function SettingsPage() {
                   <label style={{ fontSize: '11px', color: 'var(--text-3)', fontWeight: 600, display: 'block', marginBottom: '8px' }}>
                     Select Active Email Provider
                   </label>
-                  <div style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '20px' }}>
                     {[
-                      { id: 'gmail', label: 'Gmail / Google Workspace', desc: 'Google API & OAuth' },
-                      { id: 'titan', label: 'Titan Email', desc: 'IMAP & SMTP' }
+                      { id: 'gmail', label: 'Gmail / Google Workspace', desc: 'Google API & OAuth', disabled: false },
+                      { id: 'titan', label: 'Titan Email', desc: 'IMAP & SMTP', disabled: false },
+                      { id: 'outlook', label: 'Outlook (Coming Soon)', desc: 'Microsoft Graph API', disabled: true },
+                      { id: 'zoho', label: 'Zoho Mail (Coming Soon)', desc: 'Zoho API & IMAP', disabled: true }
                     ].map(p => (
                       <button
                         key={p.id}
                         type="button"
-                        onClick={() => setEmailProvider(p.id)}
-                        disabled={!isOwner}
+                        onClick={() => !p.disabled && setEmailProvider(p.id)}
+                        disabled={!isOwner || p.disabled}
                         style={{
                           flex: 1,
                           padding: '12px',
@@ -267,8 +326,8 @@ export default function SettingsPage() {
                           border: emailProvider === p.id ? '1px solid var(--violet)' : '1px solid var(--border)',
                           borderRadius: 'var(--radius)',
                           textAlign: 'left',
-                          cursor: isOwner ? 'pointer' : 'not-allowed',
-                          opacity: isOwner ? 1 : 0.5,
+                          cursor: (isOwner && !p.disabled) ? 'pointer' : 'not-allowed',
+                          opacity: (isOwner && !p.disabled) ? 1 : 0.4,
                           transition: 'all 0.2s',
                           color: 'var(--text)'
                         }}
@@ -413,6 +472,95 @@ export default function SettingsPage() {
                     </div>
                   </div>
                 )}
+
+                {/* Sync & Connection Status Block */}
+                <div style={{
+                  padding: '16px',
+                  background: 'var(--bg-card-alt)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 'var(--radius)',
+                  marginTop: '16px',
+                  marginBottom: '12px'
+                }}>
+                  <div style={{ fontSize: '12.5px', fontWeight: 700, color: 'var(--text)', marginBottom: '12px' }}>
+                    Integration Status & Control
+                  </div>
+                  
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px', fontSize: '11.5px' }}>
+                    <div>
+                      <span style={{ color: 'var(--text-3)' }}>Connection Status: </span>
+                      <span style={{
+                        fontWeight: 600,
+                        color: workspace?.connectionStatus === 'connected' ? 'var(--green)' : workspace?.connectionStatus === 'failed' ? 'var(--red)' : 'var(--text-3)'
+                      }}>
+                        {workspace?.connectionStatus ? workspace.connectionStatus.toUpperCase() : 'UNCONFIGURED'}
+                      </span>
+                    </div>
+                    <div>
+                      <span style={{ color: 'var(--text-3)' }}>Last Sync Time: </span>
+                      <span style={{ color: 'var(--text-2)', fontWeight: 500 }}>
+                        {workspace?.lastSyncTime ? new Date(workspace.lastSyncTime).toLocaleTimeString() : 'Never'}
+                      </span>
+                    </div>
+                    <div>
+                      <span style={{ color: 'var(--text-3)' }}>IMAP Connected: </span>
+                      <span style={{ fontWeight: 600, color: workspace?.imapConnected ? 'var(--green)' : 'var(--red)' }}>
+                        {workspace?.imapConnected ? '✓ YES' : '✗ NO'}
+                      </span>
+                    </div>
+                    <div>
+                      <span style={{ color: 'var(--text-3)' }}>SMTP Connected: </span>
+                      <span style={{ fontWeight: 600, color: workspace?.smtpConnected ? 'var(--green)' : 'var(--red)' }}>
+                        {workspace?.smtpConnected ? '✓ YES' : '✗ NO'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    {emailProvider === 'titan' && (
+                      <button
+                        type="button"
+                        onClick={handleTestConnection}
+                        disabled={testingConnection || !isOwner}
+                        className="btn-ghost"
+                        style={{ fontSize: '11.5px', padding: '6px 12px' }}
+                      >
+                        {testingConnection ? 'Testing Connection…' : 'Test Connection'}
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={handleSyncMailbox}
+                      disabled={syncingMailbox || !isOwner}
+                      className="btn-primary"
+                      style={{ fontSize: '11.5px', padding: '6px 12px' }}
+                    >
+                      {syncingMailbox ? 'Syncing…' : 'Sync Now'}
+                    </button>
+                  </div>
+
+                  {testResult && (
+                    <div style={{
+                      marginTop: '12px',
+                      padding: '10px 12px',
+                      borderRadius: 'var(--radius-xs)',
+                      fontSize: '11px',
+                      background: testResult.success ? 'rgba(16, 185, 129, 0.06)' : 'rgba(239, 68, 68, 0.06)',
+                      border: testResult.success ? '1px solid rgba(16, 185, 129, 0.2)' : '1px solid rgba(239, 68, 68, 0.2)',
+                      color: testResult.success ? 'var(--green)' : 'var(--red)',
+                      lineHeight: 1.4
+                    }}>
+                      {testResult.success ? (
+                        <div>✓ Connected</div>
+                      ) : (
+                        <div>
+                          <strong>✗ Failed</strong>
+                          <div style={{ fontSize: '10px', marginTop: '3px', color: 'var(--text-2)' }}>{testResult.error}</div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </>
             )}
 

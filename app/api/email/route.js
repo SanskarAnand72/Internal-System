@@ -1,15 +1,13 @@
 import { NextResponse } from "next/server";
 import { getCurrentWorkspace } from "@/lib/googleClient";
 import { auth } from "@/auth";
-import { getEmailData } from "@/lib/email";
+import { runEmailSync } from "@/lib/email/SyncService";
 
 export const maxDuration = 30; // Extend serverless duration to accommodate IMAP handshakes
 
 export async function GET(req) {
   try {
     const session = await auth();
-    const userId = session?.user?.id || "unknown";
-    const workspaceId = session?.user?.workspaceId || "unknown";
     const workspace = await getCurrentWorkspace();
 
     if (!workspace) {
@@ -19,7 +17,8 @@ export async function GET(req) {
       );
     }
 
-    const emailData = await getEmailData(workspace);
+    // Call the SyncService to sync email data and update status fields in DB
+    const emailData = await runEmailSync(workspace);
     return NextResponse.json(emailData);
 
   } catch (e) {

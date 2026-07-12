@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { randomUUID } from "crypto";
+import { encrypt } from "@/lib/encryption";
 import {
   getWorkspaceById,
   updateWorkspace,
@@ -25,6 +26,15 @@ export async function GET() {
 
   const members = getUsersByWorkspace(workspace.id);
 
+  const maskedCredentials = workspace.titanCredentials ? {
+    host: workspace.titanCredentials.host || "",
+    smtpHost: workspace.titanCredentials.smtpHost || "",
+    imapPort: workspace.titanCredentials.imapPort || "",
+    smtpPort: workspace.titanCredentials.smtpPort || "",
+    email: workspace.titanCredentials.email || "",
+    password: workspace.titanCredentials.password ? "••••••••" : ""
+  } : null;
+
   return NextResponse.json({
     id:            workspace.id,
     name:          workspace.name,
@@ -34,6 +44,12 @@ export async function GET() {
     googleConnected: !!(workspace.googleTokens?.accessToken),
     memberCount:   members.length,
     createdAt:     workspace.createdAt,
+    emailProvider: workspace.emailProvider || "gmail",
+    lastSyncTime:  workspace.lastSyncTime || null,
+    connectionStatus: workspace.connectionStatus || "unconfigured",
+    imapConnected: workspace.imapConnected || false,
+    smtpConnected: workspace.smtpConnected || false,
+    titanCredentials: maskedCredentials,
   });
 }
 
@@ -123,7 +139,18 @@ export async function PATCH(req) {
   if (body.name             !== undefined) patch.name              = body.name.trim();
   if (body.spreadsheetId    !== undefined) patch.spreadsheetId     = body.spreadsheetId.trim();
   if (body.emailProvider    !== undefined) patch.emailProvider     = body.emailProvider;
-  if (body.titanCredentials !== undefined) patch.titanCredentials  = body.titanCredentials;
+  if (body.titanCredentials !== undefined) {
+    const existing = workspace.titanCredentials || {};
+    const updatedCreds = { ...body.titanCredentials };
+    if (updatedCreds.password === "••••••••") {
+      updatedCreds.password = existing.password || "";
+    } else if (updatedCreds.password) {
+      updatedCreds.password = encrypt(updatedCreds.password);
+    } else {
+      updatedCreds.password = existing.password || "";
+    }
+    patch.titanCredentials = updatedCreds;
+  }
 
   console.log("[PATCH /api/workspace] Applying patch:", JSON.stringify(patch));
 
