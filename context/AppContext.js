@@ -61,7 +61,7 @@ export const AppProvider = ({ children }) => {
 
   // ── Load Workspace ────────────────────────────────────────────────────────
   const loadWorkspace = useCallback(async () => {
-    if (status !== 'authenticated' || !session?.user?.workspaceId) return;
+    if (status !== 'authenticated') return;
     setWorkspaceLoading(true);
     try {
       const res = await fetch('/api/workspace');
@@ -97,7 +97,7 @@ export const AppProvider = ({ children }) => {
 
   // ── Core Sync ─────────────────────────────────────────────────────────────
   const syncData = useCallback(async (isManual = false) => {
-    if (status !== 'authenticated' || !session?.user?.workspaceId) {
+    if (status !== 'authenticated') {
       setSheetsError('No User Authenticated');
       return;
     }

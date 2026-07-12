@@ -3,7 +3,7 @@ import { auth } from "@/auth";
 import { randomUUID } from "crypto";
 import { encrypt } from "@/lib/encryption";
 import {
-  getWorkspaceById,
+  findWorkspaceForUser,
   updateWorkspace,
   createWorkspace,
   getUserByEmail,
@@ -15,13 +15,16 @@ import {
 // Returns the current user's workspace info.
 export async function GET() {
   const session = await auth();
-  if (!session?.user?.workspaceId) {
-    return NextResponse.json({ error: "No workspace" }, { status: 404 });
-  }
+  const workspace = session?.user
+    ? findWorkspaceForUser({
+        userId: session.user.id || null,
+        email: session.user.email || null,
+        workspaceId: session.user.workspaceId || null,
+      })
+    : null;
 
-  const workspace = getWorkspaceById(session.user.workspaceId);
   if (!workspace) {
-    return NextResponse.json({ error: "Workspace not found" }, { status: 404 });
+    return NextResponse.json({ error: "No workspace" }, { status: 404 });
   }
 
   const members = getUsersByWorkspace(workspace.id);
@@ -67,8 +70,22 @@ export async function POST(req) {
   }
 
   // Prevent creating a second workspace
-  if (dbUser.workspaceId) {
-    return NextResponse.json({ error: "User already has a workspace" }, { status: 400 });
+  const existingWorkspace = findWorkspaceForUser({
+    userId: dbUser.id,
+    email: dbUser.email,
+    workspaceId: dbUser.workspaceId,
+  });
+
+  if (existingWorkspace) {
+    if (dbUser.workspaceId !== existingWorkspace.id) {
+      updateUser(dbUser.id, {
+        workspaceId: existingWorkspace.id,
+        role: existingWorkspace.ownerId === dbUser.id ? "Owner" : dbUser.role || null,
+        status: dbUser.status || "active",
+      });
+    }
+
+    return NextResponse.json({ workspace: existingWorkspace });
   }
 
   const { name } = await req.json();
@@ -113,15 +130,17 @@ export async function POST(req) {
 // Update workspace name or spreadsheetId. Owner only.
 export async function PATCH(req) {
   const session = await auth();
-  if (!session?.user?.workspaceId) {
-    console.log("[PATCH /api/workspace] Unauthorized — no workspaceId in session");
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const workspace = session?.user
+    ? findWorkspaceForUser({
+        userId: session.user.id || null,
+        email: session.user.email || null,
+        workspaceId: session.user.workspaceId || null,
+      })
+    : null;
 
-  const workspace = getWorkspaceById(session.user.workspaceId);
   if (!workspace) {
-    console.log(`[PATCH /api/workspace] Workspace not found for ID: ${session.user.workspaceId}`);
-    return NextResponse.json({ error: "Workspace not found" }, { status: 404 });
+    console.log("[PATCH /api/workspace] Unauthorized — unable to resolve workspace from session");
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   console.log(`[PATCH /api/workspace] Current session role: "${session.user.role}"`);

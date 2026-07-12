@@ -7,6 +7,7 @@ import {
   getUserById,
   updateUser,
   getWorkspaceById,
+  findWorkspaceForUser,
   updateWorkspace,
   createWorkspace,
   getPendingInvitationByEmail,
@@ -247,52 +248,84 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             });
           } else if (!existingUser.workspaceId) {
             // ── OWNER: no workspace yet (first sign-in / legacy edge case) ──
-            const workspaceId = randomUUID();
-            const defaultName = `${(user.name || existingUser.name || 'User').split(' ')[0]}'s Workspace`;
-            logAuth("signIn:path", {
-              path: "existingUser>owner>createWorkspace",
+            const existingWorkspace = findWorkspaceForUser({
               userId: existingUser.id,
-              workspaceId,
-              defaultName,
-              accessTokenPresent: !!account?.access_token,
-              refreshTokenPresent: !!account?.refresh_token,
+              email: existingUser.email,
+              workspaceId: existingUser.workspaceId,
             });
 
-            console.log("[Auth][signIn] Before buildGoogleTokens (owner)");
-            const ownerTokens = buildGoogleTokens(account);
-            console.log("[Auth][signIn] After buildGoogleTokens (owner)", {
-              accessTokenExists: !!ownerTokens.accessToken,
-              refreshTokenExists: !!ownerTokens.refreshToken
-            });
+            if (existingWorkspace) {
+              logAuth("signIn:path", {
+                path: "existingUser>owner>reuseExistingWorkspace",
+                userId: existingUser.id,
+                workspaceId: existingWorkspace.id,
+                ownerId: existingWorkspace.ownerId,
+                ownerEmail: existingWorkspace.ownerEmail,
+              });
 
-            console.log("[Auth][signIn] Before createWorkspace (owner)", {
-              workspaceId,
-              ownerId: existingUser.id,
-              ownerEmail: existingUser.email,
-              defaultName,
-            });
-            createWorkspace({
-              id:           workspaceId,
-              name:         defaultName,
-              ownerId:      existingUser.id,
-              ownerEmail:   existingUser.email,
-              googleTokens: ownerTokens,
-              spreadsheetId: "",
-            });
-            console.log("[Auth][signIn] After createWorkspace (owner)");
+              patch.workspaceId = existingWorkspace.id;
+              patch.role        = existingWorkspace.ownerId === existingUser.id ? "Owner" : (existingUser.role || null);
+              patch.status      = existingUser.status || "active";
 
-            console.log("[Auth][signIn] Before getWorkspaceById (owner)", { workspaceId });
-            const ownerWs = getWorkspaceById(workspaceId);
-            console.log("[Auth][signIn] After getWorkspaceById (owner)", { found: !!ownerWs });
+              if (existingWorkspace.ownerId === existingUser.id && account?.access_token) {
+                console.log("[Auth][signIn] Before buildGoogleTokens (re-link existing workspace)");
+                const ownerTokens = buildGoogleTokens(account, existingWorkspace.googleTokens);
+                console.log("[Auth][signIn] After buildGoogleTokens (re-link existing workspace)", {
+                  accessTokenExists: !!ownerTokens.accessToken,
+                  refreshTokenExists: !!ownerTokens.refreshToken,
+                });
 
-            logAuth("signIn:dbWrite:createWorkspace", {
-              workspaceId,
-              result: ownerWs,
-            });
+                updateWorkspace(existingWorkspace.id, { googleTokens: ownerTokens });
+                console.log(`[signIn] Re-linked existing workspace ${existingWorkspace.id} for ${existingUser.email}`);
+              }
+            } else {
+              const workspaceId = randomUUID();
+              const defaultName = `${(user.name || existingUser.name || 'User').split(' ')[0]}'s Workspace`;
+              logAuth("signIn:path", {
+                path: "existingUser>owner>createWorkspace",
+                userId: existingUser.id,
+                workspaceId,
+                defaultName,
+                accessTokenPresent: !!account?.access_token,
+                refreshTokenPresent: !!account?.refresh_token,
+              });
 
-            patch.workspaceId = workspaceId;
-            patch.role        = "Owner";
-            patch.status      = "active";
+              console.log("[Auth][signIn] Before buildGoogleTokens (owner)");
+              const ownerTokens = buildGoogleTokens(account);
+              console.log("[Auth][signIn] After buildGoogleTokens (owner)", {
+                accessTokenExists: !!ownerTokens.accessToken,
+                refreshTokenExists: !!ownerTokens.refreshToken
+              });
+
+              console.log("[Auth][signIn] Before createWorkspace (owner)", {
+                workspaceId,
+                ownerId: existingUser.id,
+                ownerEmail: existingUser.email,
+                defaultName,
+              });
+              createWorkspace({
+                id:           workspaceId,
+                name:         defaultName,
+                ownerId:      existingUser.id,
+                ownerEmail:   existingUser.email,
+                googleTokens: ownerTokens,
+                spreadsheetId: "",
+              });
+              console.log("[Auth][signIn] After createWorkspace (owner)");
+
+              console.log("[Auth][signIn] Before getWorkspaceById (owner)", { workspaceId });
+              const ownerWs = getWorkspaceById(workspaceId);
+              console.log("[Auth][signIn] After getWorkspaceById (owner)", { found: !!ownerWs });
+
+              logAuth("signIn:dbWrite:createWorkspace", {
+                workspaceId,
+                result: ownerWs,
+              });
+
+              patch.workspaceId = workspaceId;
+              patch.role        = "Owner";
+              patch.status      = "active";
+            }
 
             console.log("[Auth][signIn] Before updateUser (owner)", {
               userId: existingUser.id,
@@ -560,13 +593,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         logAuth("jwt:providerSub", {
           providerSub: token.providerSub || null,
         });
+          token.email = user?.email || token.email || null;
       }
 
       // ── Primary DB lookup: use EMAIL (always reliable) ────────────────────
       // Auth.js puts the Google numeric sub in user.id / token.sub.
       // Our DB stores UUIDs — getUserById would fail to find the user.
       // Email is always present in the token and never changes.
-      const email = token.email;
+      const email = token.email || user?.email || null;
       if (!email) {
         logAuth("jwt:return", {
           decision: "allow",
@@ -592,6 +626,27 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           // ── Store the DB UUID as the canonical token.id ──────────────────
           // This ensures session.user.id is always the DB UUID, not the Google sub.
           token.id = dbUser.id;
+
+          // Preserve the email claim so later JWT hydrations can still recover the workspace.
+          token.email = dbUser.email || token.email || email;
+
+          let resolvedWorkspace = findWorkspaceForUser({
+            userId: dbUser.id,
+            email: dbUser.email,
+            workspaceId: dbUser.workspaceId,
+          });
+
+          if (!dbUser.workspaceId && resolvedWorkspace) {
+            updateUser(dbUser.id, {
+              workspaceId: resolvedWorkspace.id,
+              role: resolvedWorkspace.ownerId === dbUser.id ? "Owner" : dbUser.role || null,
+              status: dbUser.status || "active",
+            });
+            dbUser.workspaceId = resolvedWorkspace.id;
+            if (resolvedWorkspace.ownerId === dbUser.id) {
+              dbUser.role = "Owner";
+            }
+          }
 
           if (!dbUser.workspaceId) {
             // Only auto-create a workspace if there's no pending invitation
@@ -639,12 +694,18 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             // If there IS a pending invite, workspaceId stays null until /join
           }
 
-          token.workspaceId = dbUser.workspaceId || null;
+          resolvedWorkspace = resolvedWorkspace || findWorkspaceForUser({
+            userId: dbUser.id,
+            email: dbUser.email,
+            workspaceId: dbUser.workspaceId,
+          });
+
+          token.workspaceId = dbUser.workspaceId || resolvedWorkspace?.id || null;
           token.role        = dbUser.role         || null;
           token.image       = dbUser.image        || token.picture || null;
 
           // ── Lookup workspace name for debugging ──────────────────────────
-          const ws = dbUser.workspaceId ? getWorkspaceById(dbUser.workspaceId) : null;
+          const ws = resolvedWorkspace || (dbUser.workspaceId ? getWorkspaceById(dbUser.workspaceId) : null);
           token.workspaceName = ws?.name || null;
           logAuth("jwt:dbRead:getWorkspaceById", {
             workspaceId: dbUser.workspaceId || null,
@@ -750,11 +811,19 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       });
 
       if (session.user) {
+        const sessionUserId = token.id || token.sub || null;
+        const sessionEmail = session.user.email || token.email || null;
+        const sessionWorkspace = findWorkspaceForUser({
+          userId: sessionUserId,
+          email: sessionEmail,
+          workspaceId: token.workspaceId,
+        });
+
         // token.id is now the DB UUID (set in the jwt callback); fall back to sub only if missing
-        session.user.id            = token.id   || token.sub;
-        session.user.workspaceId   = token.workspaceId   || null;
-        session.user.workspaceName = token.workspaceName || null;
-        session.user.role          = token.role          || null;
+        session.user.id = sessionUserId;
+        session.user.workspaceId = sessionWorkspace?.id || token.workspaceId || null;
+        session.user.workspaceName = sessionWorkspace?.name || token.workspaceName || null;
+        session.user.role = token.role || (sessionWorkspace?.ownerId === sessionUserId ? "Owner" : null);
         if (token.image) session.user.image = token.image;
       }
 
