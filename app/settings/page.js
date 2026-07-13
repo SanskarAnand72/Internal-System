@@ -151,6 +151,7 @@ export default function SettingsPage() {
       });
 
       if (res.ok) {
+        setTitanPassword('');
         showToast('✅ Configuration saved successfully', 'success');
         await loadWorkspace();
       } else {

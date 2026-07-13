@@ -170,7 +170,16 @@ export async function PATCH(req) {
   }
 
   const body = await req.json();
-  console.log("[PATCH /api/workspace] Received body:", JSON.stringify(body));
+  const sanitizedBody = {
+    ...body,
+    titanCredentials: body.titanCredentials
+      ? {
+          ...body.titanCredentials,
+          password: body.titanCredentials.password ? "***REDACTED***" : "",
+        }
+      : undefined,
+  };
+  console.log("[PATCH /api/workspace] Received body:", JSON.stringify(sanitizedBody));
 
   const patch = {};
   if (body.name             !== undefined) patch.name              = body.name.trim();
