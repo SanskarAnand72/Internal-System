@@ -10,14 +10,20 @@ export const maxDuration = 20; // 20s execution limit for testing connections
 export async function POST(req) {
   try {
     const session = await auth();
-    if (!session?.user?.workspaceId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    console.log("[Test Connection] claims", {
+      sessionEmail: session?.user?.email || null,
+      sessionWorkspaceId: session?.user?.workspaceId || null,
+    });
 
     const workspace = await getCurrentWorkspace();
     if (!workspace) {
       return NextResponse.json({ error: "Workspace not found" }, { status: 404 });
     }
+
+    console.log("[Test Connection] resolvedWorkspace", {
+      workspaceId: workspace.id,
+      ownerId: workspace.ownerId,
+    });
 
     const body = await req.json();
     const providerName = body.emailProvider || workspace.emailProvider || "gmail";
