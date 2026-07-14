@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { getWorkspaceById, revokeInvitation, getInvitationByToken } from "@/lib/db";
+import { findWorkspaceForUser, revokeInvitation, getInvitationByToken } from "@/lib/db";
 
 // PATCH /api/team/revoke
 // Revokes a pending invitation. Owner only.
 export async function PATCH(req) {
   const session = await auth();
-  if (!session?.user?.workspaceId) {
+  const workspace = findWorkspaceForUser({ email: session?.user?.email || null });
+  if (!workspace) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -25,7 +26,7 @@ export async function PATCH(req) {
   }
 
   // Ensure the invitation belongs to this workspace
-  if (invitation.workspaceId !== session.user.workspaceId) {
+  if (invitation.workspaceId !== workspace.id) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

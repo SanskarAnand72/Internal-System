@@ -56,14 +56,10 @@ export async function GET(req) {
   try {
     const session     = await auth();
     const userId      = session?.user?.id          || "unknown";
-    const workspaceId = session?.user?.workspaceId || "unknown";
     const workspace   = await getCurrentWorkspace();
+    const workspaceId = workspace?.id || "unknown";
 
     let spreadsheetId = workspace?.spreadsheetId || "";
-    if (!spreadsheetId) {
-      const { searchParams } = new URL(req.url);
-      spreadsheetId = searchParams.get("spreadsheetId") || "";
-    }
 
     if (!spreadsheetId) {
       return NextResponse.json({ error: "No Spreadsheet ID configured" }, { status: 400 });

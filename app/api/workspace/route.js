@@ -18,14 +18,9 @@ export async function GET() {
   console.log("[GET /api/workspace] claims", {
     sessionUserId: session?.user?.id || null,
     sessionEmail: session?.user?.email || null,
-    sessionWorkspaceId: session?.user?.workspaceId || null,
   });
   const workspace = session?.user
-    ? findWorkspaceForUser({
-        userId: session.user.id || null,
-        email: session.user.email || null,
-        workspaceId: session.user.workspaceId || null,
-      })
+    ? findWorkspaceForUser({ email: session.user.email || null })
     : null;
 
   if (!workspace) {
@@ -83,9 +78,7 @@ export async function POST(req) {
 
   // Prevent creating a second workspace
   const existingWorkspace = findWorkspaceForUser({
-    userId: dbUser.id,
     email: dbUser.email,
-    workspaceId: dbUser.workspaceId,
   });
 
   if (existingWorkspace) {
@@ -145,15 +138,9 @@ export async function PATCH(req) {
   console.log("[PATCH /api/workspace] claims", {
     sessionUserId: session?.user?.id || null,
     sessionEmail: session?.user?.email || null,
-    sessionWorkspaceId: session?.user?.workspaceId || null,
-    sessionRole: session?.user?.role || null,
   });
   const workspace = session?.user
-    ? findWorkspaceForUser({
-        userId: session.user.id || null,
-        email: session.user.email || null,
-        workspaceId: session.user.workspaceId || null,
-      })
+    ? findWorkspaceForUser({ email: session.user.email || null })
     : null;
 
   if (!workspace) {
@@ -161,11 +148,14 @@ export async function PATCH(req) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  console.log(`[PATCH /api/workspace] Current session role: "${session.user.role}"`);
+  const sessionUser = getUserByEmail(session.user.email);
+  const sessionRole = sessionUser?.role || (workspace.ownerEmail === session.user.email ? "Owner" : null);
+
+  console.log(`[PATCH /api/workspace] Current session role: "${sessionRole}"`);
 
   // Only the Owner can patch workspace settings
-  if (session.user.role !== "Owner") {
-    console.log(`[PATCH /api/workspace] Forbidden — role is "${session.user.role}", not "Owner"`);
+  if (sessionRole !== "Owner") {
+    console.log(`[PATCH /api/workspace] Forbidden — role is "${sessionRole}", not "Owner"`);
     return NextResponse.json({ error: "Forbidden — Owner only" }, { status: 403 });
   }
 

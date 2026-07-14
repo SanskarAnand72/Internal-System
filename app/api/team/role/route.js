@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { getUserById, updateUser, getWorkspaceById } from "@/lib/db";
+import { findWorkspaceForUser, getUserById, updateUser } from "@/lib/db";
 
 // PATCH /api/team/role
 // Change a workspace member's role. Owner only.
 // Owner cannot be demoted via this endpoint — ownership transfer requires /api/team/transfer.
 export async function PATCH(req) {
   const session = await auth();
-  if (!session?.user?.workspaceId) {
+  const workspace = findWorkspaceForUser({ email: session?.user?.email || null });
+  if (!workspace) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -27,12 +28,11 @@ export async function PATCH(req) {
   }
 
   const targetUser = getUserById(userId);
-  if (!targetUser || targetUser.workspaceId !== session.user.workspaceId) {
+  if (!targetUser || targetUser.workspaceId !== workspace.id) {
     return NextResponse.json({ error: "Member not found in this workspace" }, { status: 404 });
   }
 
   // Owner cannot change their own role via this endpoint
-  const workspace = getWorkspaceById(session.user.workspaceId);
   if (workspace.ownerId === userId) {
     return NextResponse.json({ error: "Owner role cannot be changed. Use ownership transfer." }, { status: 400 });
   }

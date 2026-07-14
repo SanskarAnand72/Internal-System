@@ -446,8 +446,30 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         } else {
           // ── Brand new user ─────────────────────────────────────────────────
           const userId = user.id || profile?.sub;
+          const existingWorkspace = findWorkspaceForUser({ email: user.email });
 
-          if (hasPendingInvite) {
+          if (existingWorkspace) {
+            logAuth("signIn:path", {
+              path: "newUser>reuseExistingWorkspace",
+              userId,
+              workspaceId: existingWorkspace.id,
+              ownerId: existingWorkspace.ownerId,
+              ownerEmail: existingWorkspace.ownerEmail,
+            });
+
+            saveUser({
+              id:           userId,
+              name:         user.name,
+              email:        user.email,
+              image:        user.image,
+              workspaceId:  existingWorkspace.id,
+              role:         existingWorkspace.ownerId === userId ? "Owner" : null,
+              status:       "active",
+              accessToken:  null,
+              refreshToken: null,
+              expiresAt:    null,
+            });
+          } else if (hasPendingInvite) {
             // Invited member — identity only, no workspace, no tokens
             logAuth("signIn:path", {
               path: "newUser>pendingInvite>saveUser",
@@ -840,28 +862,24 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const sessionUserId = token.id || token.sub || null;
         const sessionDbUser = sessionUserId ? getUserById(sessionUserId) : null;
         const sessionEmail = session.user.email || token.email || sessionDbUser?.email || null;
-        const sessionWorkspace = findWorkspaceForUser({
-          userId: sessionUserId,
-          email: sessionEmail,
-          workspaceId: token.workspaceId,
-        });
+        const sessionWorkspace = findWorkspaceForUser({ email: sessionEmail });
+        const sessionRole = sessionDbUser?.role || (sessionWorkspace?.ownerId === sessionUserId ? "Owner" : token.role || null);
 
         // token.id is now the DB UUID (set in the jwt callback); fall back to sub only if missing
         session.user.id = sessionUserId;
         session.user.email = sessionEmail;
-        session.user.workspaceId = sessionWorkspace?.id || token.workspaceId || null;
-        session.user.workspaceName = sessionWorkspace?.name || token.workspaceName || null;
-        session.user.role = token.role || (sessionWorkspace?.ownerId === sessionUserId ? "Owner" : null);
+        session.user.workspaceId = sessionWorkspace?.id || null;
+        session.user.workspaceName = sessionWorkspace?.name || null;
+        session.user.role = sessionRole;
         if (token.image) session.user.image = token.image;
 
         logAuth("session:claims", {
           sessionUserId,
           sessionEmail,
-          jwtWorkspaceId: token.workspaceId || null,
           sessionWorkspaceId: session.user.workspaceId || null,
         });
         logAuth("session:workspaceSnapshot", {
-          workspaceId: sessionWorkspace?.id || token.workspaceId || null,
+          workspaceId: sessionWorkspace?.id || null,
           ownerId: sessionWorkspace?.ownerId || null,
           emailProvider: sessionWorkspace?.emailProvider || null,
           googleTokens: sessionWorkspace?.googleTokens || null,

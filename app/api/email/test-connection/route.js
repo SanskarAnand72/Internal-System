@@ -12,7 +12,6 @@ export async function POST(req) {
     const session = await auth();
     console.log("[Test Connection] claims", {
       sessionEmail: session?.user?.email || null,
-      sessionWorkspaceId: session?.user?.workspaceId || null,
     });
 
     const workspace = await getCurrentWorkspace();

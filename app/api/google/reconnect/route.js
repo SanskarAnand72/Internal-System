@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { getUserByEmail, getWorkspaceById, updateWorkspace } from "@/lib/db";
+import { findWorkspaceForUser, updateWorkspace } from "@/lib/db";
 
 /**
  * POST /api/google/reconnect
@@ -26,14 +26,9 @@ export async function POST() {
       );
     }
 
-    const workspaceId = session.user.workspaceId;
-    if (!workspaceId) {
-      return NextResponse.json({ error: "No workspace found" }, { status: 404 });
-    }
-
-    const workspace = getWorkspaceById(workspaceId);
+    const workspace = findWorkspaceForUser({ email: session.user.email });
     if (!workspace) {
-      return NextResponse.json({ error: "Workspace not found" }, { status: 404 });
+      return NextResponse.json({ error: "No workspace found" }, { status: 404 });
     }
 
     console.log("[Google Reconnect] workspaceSnapshot:before", {
@@ -45,16 +40,16 @@ export async function POST() {
     });
 
     // Preserve Google tokens; sign-out/sign-in will refresh them without losing the current workspace record.
-    updateWorkspace(workspaceId, { updatedAt: new Date().toISOString() });
+    updateWorkspace(workspace.id, { updatedAt: new Date().toISOString() });
 
-    console.log(`[Google Reconnect] Cleared tokens for workspace ${workspaceId} (${workspace.name})`);
+    console.log(`[Google Reconnect] Cleared tokens for workspace ${workspace.id} (${workspace.name})`);
     console.log(`[Google Reconnect] Owner must sign out and sign back in to reconnect.`);
     console.log("[Google Reconnect] workspaceSnapshot:after", {
       workspaceId: workspace.id,
       ownerId: workspace.ownerId,
       emailProvider: workspace.emailProvider || "gmail",
-      googleTokens: getWorkspaceById(workspaceId)?.googleTokens || null,
-      spreadsheetId: getWorkspaceById(workspaceId)?.spreadsheetId || "",
+      googleTokens: findWorkspaceForUser({ email: session.user.email })?.googleTokens || null,
+      spreadsheetId: findWorkspaceForUser({ email: session.user.email })?.spreadsheetId || "",
     });
 
     return NextResponse.json({

@@ -7,17 +7,15 @@ export async function GET(req) {
   try {
     const session     = await auth();
     const userId      = session?.user?.id          || "unknown";
-    const workspaceId = session?.user?.workspaceId || "unknown";
     const workspace   = await getCurrentWorkspace();
     console.log("[Gmail API] claims", {
       sessionUserId: session?.user?.id || null,
       sessionEmail: session?.user?.email || null,
-      sessionWorkspaceId: session?.user?.workspaceId || null,
     });
 
     console.log("[Gmail API] ──────────────────────────────────────────────");
     console.log(`[Gmail API] userId        : ${userId}`);
-    console.log(`[Gmail API] workspaceId   : ${workspaceId}`);
+    console.log(`[Gmail API] workspaceId   : ${workspace?.id || "unknown"}`);
     console.log(`[Gmail API] ownerEmail    : ${workspace?.ownerEmail || "NONE"}`);
     console.log(`[Gmail API] accessToken   : ${workspace?.googleTokens?.accessToken ? "present" : "MISSING"}`);
     console.log("[Gmail API] workspaceSnapshot", {

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { getUserByEmail, getWorkspaceById, updateUser, updateWorkspace } from "@/lib/db";
+import { findWorkspaceForUser, getUserByEmail, updateUser, updateWorkspace } from "@/lib/db";
 
 export async function POST() {
   try {
@@ -9,16 +9,14 @@ export async function POST() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const workspace = findWorkspaceForUser({ email: session.user.email });
+    if (workspace?.ownerEmail === session.user.email) {
+      updateWorkspace(workspace.id, { googleTokens: null });
+    }
+
     const user = getUserByEmail(session.user.email);
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
-    }
-
-    if (user.workspaceId) {
-      const workspace = getWorkspaceById(user.workspaceId);
-      if (workspace && workspace.ownerId === user.id) {
-        updateWorkspace(workspace.id, { googleTokens: null });
-      }
     }
 
     updateUser(user.id, {

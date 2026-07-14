@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { getUserById, removeUser, getWorkspaceById } from "@/lib/db";
+import { findWorkspaceForUser, getUserById, removeUser } from "@/lib/db";
 
 // DELETE /api/team/remove
 // Remove a member from the workspace. Owner only.
 // Owner cannot remove themselves.
 export async function DELETE(req) {
   const session = await auth();
-  if (!session?.user?.workspaceId) {
+  const workspace = findWorkspaceForUser({ email: session?.user?.email || null });
+  if (!workspace) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -26,12 +27,11 @@ export async function DELETE(req) {
   }
 
   const targetUser = getUserById(userId);
-  if (!targetUser || targetUser.workspaceId !== session.user.workspaceId) {
+  if (!targetUser || targetUser.workspaceId !== workspace.id) {
     return NextResponse.json({ error: "Member not found in this workspace." }, { status: 404 });
   }
 
   // Extra safeguard — never remove the workspace owner record
-  const workspace = getWorkspaceById(session.user.workspaceId);
   if (workspace.ownerId === userId) {
     return NextResponse.json({ error: "The workspace owner cannot be removed." }, { status: 400 });
   }

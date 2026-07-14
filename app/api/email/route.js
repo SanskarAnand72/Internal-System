@@ -7,7 +7,6 @@ export const maxDuration = 30; // Extend serverless duration to accommodate IMAP
 
 export async function GET(req) {
   try {
-    const session = await auth();
     const workspace = await getCurrentWorkspace();
 
     if (!workspace) {

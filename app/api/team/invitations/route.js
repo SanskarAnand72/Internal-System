@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { getPendingInvitations } from "@/lib/db";
+import { findWorkspaceForUser, getPendingInvitations } from "@/lib/db";
 
 // GET /api/team/invitations
 // Returns pending invitations for the current workspace. Owner only.
 export async function GET() {
   const session = await auth();
-  if (!session?.user?.workspaceId) {
+  const workspace = findWorkspaceForUser({ email: session?.user?.email || null });
+  if (!workspace) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -14,6 +15,6 @@ export async function GET() {
     return NextResponse.json({ error: "Owner only" }, { status: 403 });
   }
 
-  const invitations = getPendingInvitations(session.user.workspaceId);
+  const invitations = getPendingInvitations(workspace.id);
   return NextResponse.json({ invitations });
 }

@@ -2,9 +2,8 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { randomUUID } from "crypto";
 import {
-  getWorkspaceById,
+  findWorkspaceForUser,
   getUserByEmail,
-  getUsersByWorkspace,
   createInvitation,
 } from "@/lib/db";
 
@@ -13,17 +12,13 @@ import {
 // No email is sent here — the owner copies and shares the link manually.
 export async function POST(req) {
   const session = await auth();
-  if (!session?.user?.workspaceId) {
+  const workspace = findWorkspaceForUser({ email: session?.user?.email || null });
+  if (!workspace) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   if (session.user.role !== "Owner") {
     return NextResponse.json({ error: "Only the Workspace Owner can invite members." }, { status: 403 });
-  }
-
-  const workspace = getWorkspaceById(session.user.workspaceId);
-  if (!workspace) {
-    return NextResponse.json({ error: "Workspace not found" }, { status: 404 });
   }
 
   const { email, role = "Operator" } = await req.json();
